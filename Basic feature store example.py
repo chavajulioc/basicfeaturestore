@@ -26,7 +26,7 @@
 # COMMAND ----------
 
 raw_data = spark.read.load("/databricks-datasets/wine-quality/winequality-red.csv",format="csv",sep=";",inferSchema="true",header="true" )
-
+# this is a comment
 def addIdColumn(dataframe, id_column_name):
     """Add id column to dataframe"""
     columns = dataframe.columns
