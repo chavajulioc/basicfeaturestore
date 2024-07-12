@@ -1,5 +1,11 @@
 # Databricks notebook source
 # MAGIC %pip install databricks-feature-engineering
+# MAGIC
+# MAGIC dbutils.library.restartPython()
+
+# COMMAND ----------
+
+# MAGIC %pip install databricks-feature-engineering
 # MAGIC %pip install databricks-feature-store
 # MAGIC
 # MAGIC import pandas as pd
