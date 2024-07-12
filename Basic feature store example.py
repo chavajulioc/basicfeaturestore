@@ -18,6 +18,13 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC **Load dataset**
+# MAGIC
+# MAGIC The code in the following cell loads the dataset and does some minor data preparation: creates a unique ID for each observation and removes spaces from the column names. The unique ID column (wine_id) is the primary key of the feature table and is used to lookup features.
+
+# COMMAND ----------
+
 raw_data = spark.read.load("/databricks-datasets/wine-quality/winequality-red.csv",format="csv",sep=";",inferSchema="true",header="true" )
 
 def addIdColumn(dataframe, id_column_name):
@@ -43,7 +50,21 @@ display(features_df)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC **Reuse an existing catalog**
+# MAGIC
+# MAGIC To create a new catalog, you must have the CREATE CATALOG privilege on the metastore. To use an existing catalog, you must have the USE CATALOG privilege on the catalog
+
+# COMMAND ----------
+
 spark.sql("USE CATALOG ml")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC **Create a new schema in the catalog**
+# MAGIC
+# MAGIC To create a new schema in the catalog, you must have the CREATE SCHEMA privilege on the catalog.
 
 # COMMAND ----------
 
@@ -53,6 +74,11 @@ spark.sql("USE SCHEMA wine_db")
 # Create a unique table name for each run. This prevents errors if you run the notebook multiple times.
 table_name = f"ml.wine_db.wine_db_" + str(uuid.uuid4())[:6]
 print(table_name)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Create the feature table
 
 # COMMAND ----------
 
@@ -76,9 +102,22 @@ fe.create_table(
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC **Train a model with Feature Engineering in Unity Catalog**
+# MAGIC
+# MAGIC The feature table does not include the prediction target. However, the training dataset needs the prediction target values. There may also be features that are not available until the time the model is used for inference.
+# MAGIC This example uses the feature real_time_measurement to represent a characteristic of the wine that can only be observed at inference time. This feature is used in training and the feature value for a wine is provided at inference time.
+
+# COMMAND ----------
+
 ## inference_data_df includes wine_id (primary key), quality (prediction target), and a real time feature
 inference_data_df = df.select("wine_id", "quality", (10 * rand()).alias("real_time_measurement"))
 display(inference_data_df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Use a FeatureLookup to build a training dataset that uses the specified lookup_key to lookup features from the feature table and the online feature real_time_measurement. If you do not specify the feature_names parameter, all features except the primary key are returned.
 
 # COMMAND ----------
 
@@ -118,6 +157,12 @@ except:
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC The code in the next cell trains a scikit-learn RandomForestRegressor model and logs the model with the Feature Engineering in UC.
+# MAGIC The code starts an MLflow experiment to track training parameters and results. Note that model autologging is disabled (mlflow.sklearn.autolog(log_models=False)); this is because the model is logged using fe.log_model.
+
+# COMMAND ----------
+
 # Disable MLflow autologging and instead log the model using Feature Engineering in UC
 mlflow.sklearn.autolog(log_models=False)
 
@@ -141,6 +186,18 @@ def train_model(X_train, X_test, y_train, y_test, training_set, fe):
         )
 
 train_model(X_train, X_test, y_train, y_test, training_set, fe)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC LOGGED MODEL CAN BE SEE AT EXPERIMENTS ON THE SIDE BAR
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC **Batch scoring**
+# MAGIC
+# MAGIC Use score_batch to apply a packaged Feature Engineering in UC model to new data for inference. The input data only needs the primary key column wine_id and the realtime feature real_time_measurement. The model automatically looks up all of the other feature values from the feature tables.
 
 # COMMAND ----------
 
